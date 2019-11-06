@@ -19,7 +19,7 @@ import logging
 
 import django
 import django.conf
-from django.db import connection
+from django.db import connections
 from django.utils.deprecation import MiddlewareMixin
 from google.rpc import code_pb2
 
@@ -164,8 +164,6 @@ class OpencensusMiddleware(MiddlewareMixin):
 
         self.blacklist_hostnames = settings.get(BLACKLIST_HOSTNAMES, None)
 
-        if django.VERSION >= (2,):  # pragma: NO COVER
-            connection.execute_wrappers.append(_trace_db_call)
 
     def process_request(self, request):
         """Called on each request, before Django decides which view to execute.
@@ -225,6 +223,10 @@ class OpencensusMiddleware(MiddlewareMixin):
             execution_context.set_opencensus_attr(
                 SPAN_THREAD_LOCAL_KEY,
                 span)
+
+            if django.VERSION >= (2,):  # pragma: NO COVER
+                for connection in connections.all():
+                    connection.execute_wrappers.append(_trace_db_call)
 
         except Exception:  # pragma: NO COVER
             log.error('Failed to trace request', exc_info=True)
